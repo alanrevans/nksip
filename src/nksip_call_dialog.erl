@@ -190,7 +190,7 @@ do_update({subscribe, Class, Req, Resp}, Dialog, Call) ->
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
     store(Dialog2, Call);
 
-do_update({notify, Class, Req, Resp}, Dialog, Call) ->
+do_update({notify, Class, Req, Resp}, #dialog{route_set = RS} = Dialog, Call) ->
 % AlanE: This seems to be a bug?
 % At least for me, notify occurs within an already established dialog
 % so we do not want to update the route_set if there is already one established.
@@ -199,7 +199,7 @@ do_update({notify, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = if
         RS == undefined -> route_update(Class, Req, Resp, Dialog);
         true -> Dialog
-    end
+    end,
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
     Dialog3 = case Dialog2#dialog.blocked_route_set of
         true -> Dialog2;
