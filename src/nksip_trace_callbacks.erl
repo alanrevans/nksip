@@ -36,7 +36,13 @@
 
 nkcb_connection_sent(SipMsg, Packet) ->
     #sipmsg{app_id=AppId, call_id=CallId, transport=Transp} = SipMsg,
-    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
+    case SipMsg#sipmsg.content_type of
+        {<<"application/vnd.3gpp.sms">>,[]} -> 
+            Body = encode_body('vnd.3gpp.sms', SipMsg#sipmsg.body),
+            nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, nksip_unparse:packet(SipMsg#sipmsg{body = Body}));
+        _ ->
+            nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet)
+    end,
     continue.
 
 
@@ -46,5 +52,26 @@ nkcb_connection_sent(SipMsg, Packet) ->
     continue.
 
 nkcb_connection_recv(AppId, CallId, Transp, Packet) ->
-    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
+    {ok, SipMsg} = nksip_parse:packet(AppId, CallId, Transp, Packet),
+    case SipMsg#sipmsg.content_type of
+        {<<"application/vnd.3gpp.sms">>,[]} ->
+            Body = encode_body('vnd.3gpp.sms', SipMsg#sipmsg.body),
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, nksip_unparse:packet(SipMsg#sipmsg{body = Body}));
+        _ ->
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet)
+    end,
     continue.
+
+encode_body('vnd.3gpp.sms', Binary) ->
+    Fun = fun(X) ->
+        Rp_data = cp_data:decode_rp(X),
+        list_to_binary(cp_data:display(Rp_data))
+    end,
+    try Fun(Binary) of
+        Body when is_binary(Body) -> Body
+    catch
+       _:_ -> <<"Problem with decoder:", Binary/binary>>
+    end.
+    
+    
+    
