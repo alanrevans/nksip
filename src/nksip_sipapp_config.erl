@@ -371,7 +371,8 @@ parse_transports([Transport|Rest], Acc) ->
     case 
         (Scheme==udp orelse Scheme==tcp orelse 
          Scheme==tls orelse Scheme==sctp orelse
-         Scheme==ws  orelse Scheme==wss)
+         Scheme==ws  orelse Scheme==wss orelse
+	 Scheme==sa)
     of
         true -> ok;
         false -> throw({invalid_transport, Transport})

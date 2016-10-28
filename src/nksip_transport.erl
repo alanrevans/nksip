@@ -204,7 +204,8 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
                 tls -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
                 sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts);
                 ws -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
-                wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts)
+                wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
+                sa -> pcscf_transport_sa:get_listener(AppId, Transp, Opts)
             end,
             nksip_transport_sup:add_transport(AppId, Spec);
         Pid when is_pid(Pid) -> 
@@ -317,7 +318,15 @@ send(AppId, [{Proto, Ip, 0, Res}|Rest], MakeMsg, Opts) ->
     send(AppId, [{Proto, Ip, default_port(Proto), Res}|Rest], MakeMsg, Opts);
 
 send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
-    case get_connected(AppId, Proto, Ip, Port, Res) of
+    Connected = get_connected(AppId, Proto, Ip, Port, Res),
+    Local_port = nksip_lib:get_value(local_port, Opts),
+    Filtered = 
+    case Local_port of
+        undefined -> Connected;
+	Else -> [ C || {T, _} = C <- Connected, T#transport.local_port == Else]
+    end,
+%%    case get_connected(AppId, Proto, Ip, Port, Res) of
+    case Filtered of
         [{Transp, Pid}|_] -> 
             ?call_debug("Transport send to connected ~p (~p)", [D, Rest]),
             SipMsg = MakeMsg(Transp),

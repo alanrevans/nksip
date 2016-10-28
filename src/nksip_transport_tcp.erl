@@ -68,7 +68,7 @@ connect(AppId, Transp) ->
     case nksip_connection:is_max(AppId) of
         false ->
             #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-            SocketOpts = outbound_opts(Proto, AppId),
+            SocketOpts = outbound_opts(Proto, Transp, AppId),
             {InetMod, TranspMod} = case Proto of
                 tcp -> {inet, gen_tcp};
                 tls -> {ssl, ssl}
@@ -112,13 +112,13 @@ connect(AppId, Transp) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
+-spec outbound_opts(nksip:protocol(), nksip:transport(), nksip:app_id()) ->
     nksip:optslist().
 
-outbound_opts(tcp, _AppId) ->
-    [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
-
-outbound_opts(tls, AppId) ->
+outbound_opts(tcp, Transp, _AppId) ->
+    #transport{local_ip=Ip, local_port=Port} = Transp,
+    [binary, {ip, Ip}, {port, Port}, {reuseaddr, true}, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
+outbound_opts(tls, _Transp, AppId) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
             DefCert = filename:join(PrivDir, "cert.pem"),
@@ -145,7 +145,7 @@ outbound_opts(tls, AppId) ->
 listen_opts(tcp, Ip, Port, Opts) ->
     Max = nksip_lib:get_value(max_connections, Opts, 100),
     [
-        {ip, Ip}, {port, Port}, {active, false}, 
+        {ip, Ip}, {port, Port}, {active, false}, {reuseaddr, true},
         {nodelay, true}, {keepalive, true}, {packet, raw},
         {max_connections, Max}
     ];
@@ -183,7 +183,7 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
     of
         {ok, Pid} ->
             Port = ranch:get_port(Ref),
-            Transp1 = Transp#transport{local_port=Port, listen_port=Port},
+            Transp1 = Transp#transport{local_port=Port, listen_port=Port},	
             nksip_proc:put(nksip_transports, {AppId, Transp1}, Pid),
             nksip_proc:put({nksip_listen, AppId}, Transp1, Pid),
             {ok, Pid};
