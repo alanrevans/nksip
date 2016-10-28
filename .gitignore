@@ -7,3 +7,5 @@ uuid_*
 /nksip.profile
 
 /.nksip.plt
+_build/
+rebar.lock
