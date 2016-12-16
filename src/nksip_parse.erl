@@ -441,6 +441,14 @@ parse_sipmsg(SipMsg, Headers) ->
                 {'EXIT', _} -> Body;
                 ErlBody -> ErlBody
             end;
+        {<<"multipart/mixed">>,[{<<"boundary">>, Boundary}]} ->
+            Parts = binary:split(Body, [<<"--", Boundary/binary>>, <<"--", Boundary/binary, "--">>], [global, trim_all]),
+            [Sdp_part] = [X || X <- Parts,  binary:match(X, <<"Content-Type: application/sdp">>) /= nomatch],
+            Sdp_part2 = re:replace(Sdp_part, "\\n\\s+", "\r\n", [{return, binary}, global]),
+            case nksip_sdp:parse(Sdp_part2) of
+                error -> Body;
+                SDP -> SDP
+            end;
         _ ->
             Body
     end,
